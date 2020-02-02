@@ -133,7 +133,7 @@ def download_posts(url, limit, offset=0):
 
         # iterate through posts
         # - posts typically start with 'type' key and end with 'display_avatar' key
-        posts = search_dict_tree(r_dict, 'posts')
+        posts = search_dict_tree(r_dict, 'liked_posts' if args.likes else 'posts')
         if isinstance(posts, list):
             for post in posts:
                 if post['type'] == 'photo':               

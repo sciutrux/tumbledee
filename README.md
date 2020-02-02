@@ -18,3 +18,5 @@ requests
 Run in command window: python tumbledee.py
 
 Use and command line options: python tumbledee.py -h
+
+Content is downloaded into a subdirectory under current directory, subdirectory name is account given. Image files are stored with their unique Tumblr file name, text posts go into HTML files, post id as name. Reblogs downloaded can have both a text HTML file and an image file.

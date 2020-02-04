@@ -59,17 +59,22 @@ def process_photos(d):
             if v == 'url':
                 try:
                     url = d[v]
-                    source = requests.get(url)
-                    if source.status_code == 200:
-                        output_file = url[url.rfind('/')+1:]
-                        if args.verbosity >= 1:
-                            logging.info("* Requesting image: %s", url)
-                        with open(output_file, 'wb') as f:
-                            f.write(requests.get(d[v]).content)
-                            f.close()
+                    output_file = url[url.rfind('/')+1:]
+                    # check if file already exists before requesting it
+                    if args.overwrite or os.path.isfile(output_file) == False:
+                        source = requests.get(url)
+                        if source.status_code == 200:
+                            if args.verbosity >= 1:
+                                logging.info("* Requesting image: %s", url)
+                            with open(output_file, 'wb') as f:
+                                f.write(requests.get(d[v]).content)
+                                f.close()
+                        else:
+                            logging.error("* Error in image request, status_code: %s - %s",
+                                source.status_code, source.reason)
                     else:
-                        logging.error("* Error in image request, status_code: %s - %s",
-                            source.status_code, source.reason)
+                        if args.verbosity >= 1:
+                            logging.info("* Image already exists, skipping: %s", output_file)
                 except (requests.exceptions.RequestException) as e:
                     logging.error("* Error in image request %s - %s",
                             url, e)
@@ -81,42 +86,47 @@ def process_photos(d):
 
 def process_text(post):
     """process post type 'text'"""
-    # contents can be found under key 'body'
-    # create a html file for post containing post body
-    output_html = f"\
+    # check if post already exists before requesting it
+    output_file = str(post['id']) + '.html'
+    if args.overwrite or os.path.isfile(output_file) == False:
+        # contents can be found under key 'body'
+        # create a html file for post containing post body
+        output_html = f"\
 <html>\
 <head>Post id {post['id']}</head>\
 <body>{post['body']}</body>\
 </html>"
-    output_file = str(post['id']) + '.html'
-    if args.verbosity >= 1:
-        logging.info("* Processing text post: %s", output_file)
-    with open(output_file, 'wb') as f:
-        f.write(bytes(output_html.encode()))
-        f.close()
-    
-    # process all possible image elements in body
-    body_soup = bs(post['body'], 'html.parser')
-    image_tags = body_soup.findAll('img')
+        if args.verbosity >= 1:
+            logging.info("* Processing text post: %s", output_file)
+        with open(output_file, 'wb') as f:
+            f.write(bytes(output_html.encode()))
+            f.close()
+        
+        # process all possible image elements in body
+        body_soup = bs(post['body'], 'html.parser')
+        image_tags = body_soup.findAll('img')
 
-    for image in image_tags:
-        try:
-            url = image['src']
-            source = requests.get(url)
-            if source.status_code == 200:
-                output_file = url[url.rfind('/')+1:]
-                if args.verbosity >= 1:
-                    logging.info("* Requesting image: %s", url)
-                with open(output_file, 'wb') as f:
-                    f.write(requests.get(url).content)
-                    f.close()
-            else:
-                logging.error("* Error in image request, status_code: %s - %s",
-                    source.status_code, source.reason)
-        except (requests.exceptions.RequestException) as e:
-            logging.error("* Error in image request %s - %s",
-                    url, e)
-            continue
+        for image in image_tags:
+            try:
+                url = image['src']
+                source = requests.get(url)
+                if source.status_code == 200:
+                    output_file = url[url.rfind('/')+1:]
+                    if args.verbosity >= 1:
+                        logging.info("* Requesting image: %s", url)
+                    with open(output_file, 'wb') as f:
+                        f.write(requests.get(url).content)
+                        f.close()
+                else:
+                    logging.error("* Error in image request, status_code: %s - %s",
+                        source.status_code, source.reason)
+            except (requests.exceptions.RequestException) as e:
+                logging.error("* Error in image request %s - %s",
+                        url, e)
+                continue
+    else:
+        if args.verbosity >= 1:
+            logging.info("* Post already exists, skipping: %s", output_file)
 
 def download_posts(url, limit, offset=0):
     """download limited number of posts starting with offset given"""
@@ -174,6 +184,8 @@ parser.add_argument('-n', '--number', type=int, default=1,
                     help='number of posts or likes to download')
 parser.add_argument('-s', '--offset', type=int, default=0,
                     help='offset - post number where to start, newest = 0')
+parser.add_argument('-w', '--overwrite', dest='overwrite', action='store_true',
+                    help="overwrite if file already exists, do not skip")
 
 args = parser.parse_args()
 
